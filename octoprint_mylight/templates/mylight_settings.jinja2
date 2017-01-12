@@ -1,0 +1,102 @@
+<h3>{{ _('MyLight Configuration') }}</h3>
+Define the pins used for the output and the controls input / output.
+<br>
+<form class="form-horizontal">
+	<h4>{{ _('Light Settings') }}</h4>
+	<p>{{ _('Settings for the light connected to the pi (via MOSFET). Software PWM or on/off.') }}</p>
+
+    <div class="control-group">
+		<label class="control-label">{{ _('Light Pin:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Which GPIO pin your light is attached to.') }}">
+            <div class="input-append">
+				<input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.light_pin">
+				<button class="btn" data-bind="click: function() { testConfiguration() }"><i class="icon-spinner icon-spin" data-bind="visible: testActive()"></i> {{ _('test') }}</button>
+			</div>
+			<span data-bind="visible: testResult() && testSuccessful()">{{ _('Sent successfully, ') }}</span>
+			<span data-bind="visible: testResult() && !testSuccessful()">{{ _('Sending failed') }}: </span>
+			<span data-bind="text: testMessage"></span>
+		</div>
+		
+		<div class="controls">
+			<label class="checkbox">
+				<input type="checkbox" data-bind="checked: settings.plugins.mylight.light_use_pwm"> Use PWM
+			</label>
+		</div>
+		
+		<label class="control-label">{{ _('Light DC:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Brightness / Duty cycle for PWM (from 0 to 100).') }}">
+			<div class="input-append">        
+				<input type="number" step="1" min="0" max="100" class="input-mini text-right" data-bind="value: settings.plugins.mylight.light_dc">
+				<span class="add-on">%</span>
+			</div>
+        </div>
+		
+		<label class="control-label">{{ _('Light Frequency:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('PWM Frequency in Herz (200 Hz should do nicely).') }}">
+            <div class="input-append">
+				<input type="number" step="1" min="0" max="900" class="input-mini text-right" data-bind="value: settings.plugins.mylight.light_freq">
+				<span class="add-on">Hz</span>
+			</div>
+        </div>
+		
+		<div class="controls">
+			<label class="checkbox">
+				<input type="checkbox" data-bind="checked: settings.plugins.mylight.light_startup_on"> Light ON (plugin start).
+			</label>
+		</div>
+		
+		<div class="controls">
+			<label class="checkbox">
+				<input type="checkbox" data-bind="checked: settings.plugins.mylight.light_start_on_print"> Light ON (starting print).
+			</label>
+		</div>
+		
+		<label class="control-label">{{ _('Light DC (start print):') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Brightness on starting print.') }}">
+            <div class="input-append">
+				<input type="number" step="1" min="0" max="100" class="input-mini text-right" data-bind="value: settings.plugins.mylight.light_dc_print_start">
+				<span class="add-on">%</span>
+			</div>
+        </div>
+		
+		<div class="controls">
+			<label class="checkbox">
+				<input type="checkbox" data-bind="checked: settings.plugins.mylight.light_stop_on_print"> Light OFF (print done).
+			</label>
+		</div>
+		
+    </div>
+	
+	<h4>{{ _('Rotary Encoder Settings TYPE: GR LED, Sparkfun') }}</h4>
+	<p>{{ _('Settings for the Rotary Encoder.') }}</p>
+	<div class="control-group">
+        
+		<label class="control-label">{{ _('Switch Pin:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Rotary Encoder Switch pin.') }}">
+            <input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.re_switch_pin">
+        </div>
+		
+		<label class="control-label">{{ _('Encoder A Pin:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Rotary Encoder A pin. Switch A and C pins to inverse direction.') }}">
+            <input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.re_a_pin">
+        </div>
+		
+		<label class="control-label">{{ _('Encoder C Pin:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Rotary Encoder C pin. Switch A and C pins to inverse direction.') }}">
+            <input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.re_c_pin">
+        </div>
+		
+		<label class="control-label">{{ _('Green LED Pin:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Rotary Encoder Green LED pin.') }}">
+            <input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.re_g_led_pin">
+        </div>
+		
+		<label class="control-label">{{ _('Red LED Pin:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Rotary Encoder Red LED pin.') }}">
+            <input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.re_r_led_pin">
+        </div>
+		
+				
+    </div>
+	
+</form>
