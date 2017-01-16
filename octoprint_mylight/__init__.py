@@ -27,7 +27,14 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		if GPIO.VERSION < "0.6":
 			raise Exception("MyLight - RPi.GPIO must be greater than 0.6")
 		
-		GPIO.setmode(GPIO.BCM)
+		#check on the mode if GPIO already initialised by someone else
+		#mode = GPIO.getmode()
+		
+		if self._settings.get(['gpio_use_board']) == True:
+			GPIO.setmode(GPIO.BOARD)
+		else:
+			GPIO.setmode(GPIO.BCM)
+		
 		GPIO.setwarnings(True)
 		
 		self.light_on = False
@@ -37,8 +44,10 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 		self.end_press=0
 		self.start_press=0
-		
+				
 		self.pwm_dc=self._settings.get_int(['light_dc'])
+		
+		self.defined_pins={}
 
 	def get_light_status(self):
 		return self.light_on
@@ -94,7 +103,17 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		#	self._logger.exception("Error when shutting down: {error}".format(error=e))
 	
 	def gpio_init(self):
-					
+		
+		#read settings into dict / primarily for checking / testing.
+		self.defined_pins = {"light_pin": self._settings.get_int(['light_pin']),
+							"re_r_led_pin": self._settings.get_int(['re_r_led_pin']),
+							"re_g_led_pin": self._settings.get_int(['re_g_led_pin']),
+							"re_b_led_pin": self._settings.get_int(['re_b_led_pin']),
+							"re_switch_pin": self._settings.get_int(['re_switch_pin']),
+							"re_a_pin": self._settings.get_int(['re_a_pin']),
+							"re_c_pin": self._settings.get_int(['re_c_pin'])
+		}
+				
 		# SETUP the PWM for the Lights
 		if self._settings.get_int(['light_pin']) != -1:   # If a pin is defined, else just ignore it
 			GPIO.setup(int(self._settings.get(['light_pin'])), GPIO.OUT)
@@ -116,6 +135,11 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		if self._settings.get_int(['re_g_led_pin']) != -1:   # If a pin is defined, else just ignore it
 			GPIO.setup(int(self._settings.get(['re_g_led_pin'])), GPIO.OUT)
 			GPIO.output(int(self._settings.get(['re_g_led_pin'])), 0)
+			
+		#Rotary Encoder - OUTPUT (Green LED) and Turn OFF
+		if self._settings.get_int(['re_b_led_pin']) != -1:   # If a pin is defined, else just ignore it
+			GPIO.setup(int(self._settings.get(['re_b_led_pin'])), GPIO.OUT)
+			GPIO.output(int(self._settings.get(['re_b_led_pin'])), 0)
 
 		#Rotary Encoder - Switch
 		if self._settings.get_int(['re_switch_pin']) != -1:   # If a pin is defined, else just ignore it
@@ -145,14 +169,15 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			self.end_press = time.time()
 			elapsed = self.end_press - self.start_press
 		
-			#shortpress / smaller 3 seconds (on up!)
-			if elapsed<=3:
+			#shortpress / smaller x seconds (on up!)
+			if elapsed<=self._settings.get_int(['shutdown_longpress_s']) :
 				self.set_light_on(not self.get_light_status())
 			else:
-				#Shutdown
-				self.blink_switch_led(3)
-				self.gpio_cleanup()
-				self.shutdown_system()
+				#Shutdown, if this is what you want
+				if self._settings.get(['shutdown_longpress']) == True: 
+					self.blink_switch_led(3)
+					self.gpio_cleanup()
+					self.shutdown_system()
 	
 	def check_re_encoder(self, channel):
 		#function called by the event attached to the 2 rotary encoder switches, called every time the encoder moves
@@ -223,7 +248,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		return dict(
 			light=["on"],
 			light_toggle=[],
-			light_test=["pin", "pwm", "dc", "freq"]
+			pin_test=["pin"]
 		)
 
 	def on_api_command(self, command, data):
@@ -243,13 +268,37 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 								light_dc=self.pwm_dc
 			))		
 		
-		elif command == "light_test":
-			print data
+		elif command == "pin_test":
+			
+			msg=""
+			success=False
+			
+			#current Pin defined... already configured within the plugin!
+			if (int(data["pin"]) != -1) and (int(data["pin"]) in self.defined_pins.values()):
+				msg="Pin "+str(data["pin"])+" configured as "+str(self.defined_pins.keys()[self.defined_pins.values().index(int(data["pin"]))])
+				success=False
+			else:
+			
+				if int(data["pin"]) != -1:   # If a pin is defined, else just ignore it
+					
+					usage=GPIO.gpio_function(int(data["pin"]))
+					if usage == 1: #1 is the default state for input, we just assume that if it's NOT default, it's used by something else
+						GPIO.setup(int(data["pin"]), GPIO.OUT)
+						usage=GPIO.gpio_function(int(data["pin"]))
+						msg="Pin "+str(data["pin"])+" set to usage: "+str(usage)
+						success=True
+						GPIO.cleanup(int(data["pin"]))
+					else:
+						success=False
+						msg="WARNING: Pin "+str(data["pin"])+" used! Used for: "+str(usage)
+				else:
+					msg="No Pin defined (-1). Nothing tested."
+					success=False
+			
+		
 			return flask.jsonify(dict(
-								success=True,
-								msg="All ok",
-								light_status=self.get_light_status(),
-								light_dc=self.pwm_dc
+								success=success,
+								msg=msg
 			))
 		
 		else:		
@@ -270,7 +319,11 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 	
 	def get_settings_defaults(self):
 		return dict(
-			light_pin=17,
+			light_button_html_on="<i class='icon-lightbulb'></i> Light is On",
+			light_button_html_on_color="black",
+			light_button_html_off="<i class='icon-lightbulb'></i> Light is Off",
+			light_button_html_off_color="grey",
+			light_pin=-1,
 			light_use_pwm=True,
 			light_dc=80,
 			light_freq=200,
@@ -278,12 +331,24 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			light_start_on_print=True,
 			light_dc_print_start=100,
 			light_stop_on_print=True,
-			re_switch_pin=21,
-			re_a_pin=13,
-			re_c_pin=12,
+			re_switch_pin=-1,
+			re_a_pin=-1,
+			re_c_pin=-1,
+			re_r_led_pin=-1,
 			re_g_led_pin=-1,
-			re_r_led_pin=19
+			re_b_led_pin=-1,
+			gpio_use_board=False,
+			shutdown_longpress=False,
+			shutdown_longpress_s=3
+			
 		)
+		#My settings
+		#	light_pin=17,
+		#	re_switch_pin=21,
+		#	re_a_pin=13,
+		#	re_c_pin=12,
+		#	re_g_led_pin=-1,
+		#	re_r_led_pin=19
 	
 	#settings changed, restart the whole thing
 	def on_settings_save(self, data):
@@ -308,8 +373,8 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 	def get_assets(self):
 		return dict(
-			js=["js/mylight.js"],
-			css=["css/mylight.css"]
+			js=["js/mylight.js"]
+			#css=["css/mylight.css"]
 			)
 	
 	def on_event(self, event, payload):

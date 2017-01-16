@@ -6,28 +6,51 @@ $(function() {
         self.settingsViewModel = parameters[1];
         
 		self.LightStatus = ko.observable(false);
-		self.LightStatus_text = ko.observable("");
 		
 		self.Light_nav_text = ko.observable("");
-						
+		self.Light_nav_text_color = ko.observable("");
+									
         self.testActive = ko.observable(false);
         self.testResult = ko.observable(false);
         self.testSuccessful = ko.observable(false);
         self.testMessage = ko.observable();
 		
-		
-		self.create_status = function(status) {
-			self.LightStatus(status);
-			if (status) {
-				self.LightStatus_text("Light: ON");
-				self.Light_nav_text("On");
-			}
-			else {
-				self.LightStatus_text("Light: OFF");
-				self.Light_nav_text("Off");
-			}
+		//Get and set the current Gradient / Backgroundcolor according to the current theme / color (more or less)
+		self.CurrentGradient = function() {
+			currentOctoprintTheme=self.settings.appearance.color();
+			GradFrom="#eeeeee";
+			
+			if (currentOctoprintTheme == "default") {
+				currentOctoprintTheme="#bbbbbb";
+				GradFrom="white";
+				}
+			
+			gradient="linear-gradient(to bottom,"+GradFrom+", "+currentOctoprintTheme+")";
+			return gradient;
 		}
 		
+		self.CurrentBGColor = function() {
+			c=self.settings.appearance.color();
+			return c;
+		}
+		
+		//update the status / text based on the current settings
+		self.create_status = function(status) {
+			self.LightStatus(status);
+						
+			if (status) {
+				self.Light_nav_text(self.settings.plugins.mylight.light_button_html_on());
+				self.Light_nav_text_color(self.settings.plugins.mylight.light_button_html_on_color());				
+			}
+			else {
+				self.Light_nav_text(self.settings.plugins.mylight.light_button_html_off());
+				self.Light_nav_text_color(self.settings.plugins.mylight.light_button_html_off_color());		
+			}
+			
+			
+		}
+		
+		//function to toggle the light on click in the navbar
 		self.toggle_light = function() {
 		
 			var payload_light_toggle = {
@@ -54,36 +77,26 @@ $(function() {
             self.testResult(false);
             self.testSuccessful(false);
             self.testMessage("");
-
-            //var host = self.settings.plugins.growl.hostname();
-            //var port = self.settings.plugins.growl.port();
-            //var pass = self.settings.plugins.growl.password();
-
-            var payload_light_set_off = {
-                command: "light",
-                on: false
-            };
 			
-			var payload_light_toggle = {
-                command: "light_toggle"
-            };
-
+			test_pin=self.settings.plugins.mylight.light_pin();
+			
+			var payload = {
+			    command: "pin_test",
+                pin: self.settings.plugins.mylight.light_pin()
+			};
+			
             $.ajax({
                 url: API_BASEURL + "plugin/mylight",
                 type: "POST",
                 dataType: "json",
-                data: JSON.stringify(payload_light_toggle),
+                data: JSON.stringify(payload),
                 contentType: "application/json; charset=UTF-8",
                 success: function(response) {
                     self.testResult(true);
                     self.testSuccessful(response.success);
-                    self.testMessage("Light ON:"+response.light_status);
-					self.create_status(response.light_status);
-					//if (!response.success && response.hasOwnProperty("msg")) {
-                    //    self.testMessage(response.msg);
-                    //} else {
-                    //    self.testMessage("");
-                    //}
+                    self.testMessage(response.msg);
+					//self.create_status(response.light_status);
+
                 },
                 complete: function() {
                     self.testActive(false);
@@ -92,9 +105,7 @@ $(function() {
         };
 
         self.fromResponse = function(response) {
-            self.testMessage("Light ON:"+response.light_status);
-			self.create_status(response.light_status);
-
+           self.create_status(response.light_status);
         };
 
         self.requestData = function () {
@@ -115,7 +126,6 @@ $(function() {
             if (plugin != "mylight") {
                 return;
             }
-			//alert(data.light_status);
 			self.create_status(data.light_status);
             
         };
