@@ -23,7 +23,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 							octoprint.plugin.AssetPlugin):
 
 	def initialize(self):
-		self._logger.info("MyLight - Running RPi.GPIO version '{0}'...".format(GPIO.VERSION))
+		self._logger.info("MyLight ("+self.get_version()+") - Running RPi.GPIO version '{0}'...".format(GPIO.VERSION))
 		if GPIO.VERSION < "0.6":
 			raise Exception("MyLight - RPi.GPIO must be greater than 0.6")
 		
@@ -36,6 +36,9 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			GPIO.setmode(GPIO.BCM)
 		
 		GPIO.setwarnings(True)
+		
+		# Using a dictionary as a lookup table to give a name to gpio_function() return code  
+		self.gpio_port_use = {0:"GPIO.OUT", 1:"GPIO.IN",40:"GPIO.SERIAL",41:"GPIO.SPI",42:"GPIO.I2C",  43:"GPIO.HARD_PWM", -1:"GPIO.UNKNOWN"}  
 		
 		self.light_on = False
 		self.re_switch_prev_input=0
@@ -144,7 +147,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		#Rotary Encoder - Switch
 		if self._settings.get_int(['re_switch_pin']) != -1:   # If a pin is defined, else just ignore it
 			GPIO.setup(int(self._settings.get(['re_switch_pin'])), GPIO.IN, pull_up_down = GPIO.PUD_UP)
-			GPIO.add_event_detect(int(self._settings.get(['re_switch_pin'])), GPIO.BOTH, callback=self.check_re_switch, bouncetime=50)
+			GPIO.add_event_detect(int(self._settings.get(['re_switch_pin'])), GPIO.BOTH, callback=self.check_re_switch, bouncetime=10)
 			
 		#ROTARY ENCODER - INPUT switches / grey code gen
 		if self._settings.get_int(['re_a_pin']) != -1:   # If a pin is defined, else just ignore it
@@ -155,19 +158,31 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			GPIO.setup(int(self._settings.get(['re_c_pin'])), GPIO.IN, pull_up_down = GPIO.PUD_UP)
 			GPIO.add_event_detect(int(self._settings.get(['re_c_pin'])), GPIO.BOTH, callback=self.check_re_encoder, bouncetime=1)
 	
+	def indicator_light(self, state):
+		if self._settings.get_int(['re_r_led_pin']) != -1: GPIO.output(int(self._settings.get(['re_r_led_pin'])), state)
+	
 	def check_re_switch(self, channel):
 		#function called by the event attached to the switch, called every time the switch is touched
-		state = GPIO.input(int(self._settings.get(['re_switch_pin'])))
+		#Problem with this is, that if one statechange is missed, longpress missbehavious
+		
+		#state = GPIO.input(int(self._settings.get(['re_switch_pin'])))
+		state = GPIO.input(channel)
 				
 		if state == 0:
-			#for now, hardcoded indicator light ON
-			if self._settings.get_int(['re_r_led_pin']) != -1: GPIO.output(int(self._settings.get(['re_r_led_pin'])), 1)
+			#Register the time for longpressing
 			self.start_press = time.time()
+			
+			#for now, hardcoded indicator light ON
+			self.indicator_light(1)
+			
+		
 		if state == 1:
-			#for now, hardcoded indicator light OFF
-			if self._settings.get_int(['re_r_led_pin']) != -1: GPIO.output(int(self._settings.get(['re_r_led_pin'])), 0)
+			#handle press_end event 
 			self.end_press = time.time()
 			elapsed = self.end_press - self.start_press
+			
+			#for now, hardcoded indicator light OFF
+			self.indicator_light(0)
 		
 			#shortpress / smaller x seconds (on up!)
 			if elapsed<=self._settings.get_int(['shutdown_longpress_s']) :
@@ -175,7 +190,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			else:
 				#Shutdown, if this is what you want
 				if self._settings.get(['shutdown_longpress']) == True: 
-					self.blink_switch_led(3)
+					self.blink_switch_led(5)
 					self.gpio_cleanup()
 					self.shutdown_system()
 	
@@ -275,22 +290,28 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			
 			#current Pin defined... already configured within the plugin!
 			if (int(data["pin"]) != -1) and (int(data["pin"]) in self.defined_pins.values()):
-				msg="Pin "+str(data["pin"])+" configured as "+str(self.defined_pins.keys()[self.defined_pins.values().index(int(data["pin"]))])
+				msg="Pin "+str(data["pin"])+" already configured: "+str(self.defined_pins.keys()[self.defined_pins.values().index(int(data["pin"]))]).upper()
 				success=False
 			else:
 			
 				if int(data["pin"]) != -1:   # If a pin is defined, else just ignore it
-					
-					usage=GPIO.gpio_function(int(data["pin"]))
-					if usage == 1: #1 is the default state for input, we just assume that if it's NOT default, it's used by something else
-						GPIO.setup(int(data["pin"]), GPIO.OUT)
+					try:
 						usage=GPIO.gpio_function(int(data["pin"]))
-						msg="Pin "+str(data["pin"])+" set to usage: "+str(usage)
-						success=True
-						GPIO.cleanup(int(data["pin"]))
-					else:
+						
+						if usage == 1: #1 is the default state for input, we just assume that if it's NOT default, it's used by something else
+							GPIO.setup(int(data["pin"]), GPIO.OUT)
+							msg="Pin "+str(data["pin"])+" set to "+self.gpio_port_use[usage]
+							success=True
+							GPIO.cleanup(int(data["pin"]))
+						else:
+							success=False
+							msg="WARNING: Pin "+str(data["pin"])+" used! Function: "+self.gpio_port_use[usage]
+
+					except Exception as e:
+						msg="ERROR: "+str(data["pin"])+": {error}".format(error=e)
 						success=False
-						msg="WARNING: Pin "+str(data["pin"])+" used! Used for: "+str(usage)
+					
+					
 				else:
 					msg="No Pin defined (-1). Nothing tested."
 					success=False
@@ -389,6 +410,9 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 				self.set_light_on(True)
 			else:
 				return
+	
+	def get_version(self):
+		return self._plugin_version
 	
 	def get_update_information(self):
 		return dict(

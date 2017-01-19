@@ -78,15 +78,22 @@
 		their names NOT their numbers (e.g. GPIO17). This can be changed to <code>GPIO.setmode(GPIO.BOARD)</code> in the Advanced Settings. All switches / inputs are being pulled high / up. At the moment, the red LED pin is used as indicator for switch inputs and shutdown confirmation (if enabled).") }}</p>
 	<div class="control-group">
         
-		<label class="control-label">{{ _('Light Pin:') }}</label>
-        <div class="controls" data-toggle="tooltip" title="{{ _('Which GPIO pin your light is attached to.') }}">
+		<label class="control-label">{{ _('Pin Tester:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Test GPIO pin (experimental).') }}">
             <div class="input-append">
-				<input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.light_pin">
+				<input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: PinTest">
 				<button class="btn" data-bind="click: function() { testConfiguration() }"><i class="icon-spinner icon-spin" data-bind="visible: testActive()"></i> {{ _('test') }}</button>
 			</div>
-			<span data-bind="visible: testResult() && testSuccessful()">{{ _('Test success ') }}: </span>
-			<span data-bind="visible: testResult() && !testSuccessful()">{{ _('Test failed ') }}: </span>
+			<span data-bind="visible: testResult() && testSuccessful()">{{ _('Success') }}: </span>
+			<span data-bind="visible: testResult() && !testSuccessful()">{{ _('Failed') }}: </span>
 			<span data-bind="text: testMessage"></span>
+		</div>
+	
+	</div>
+	<div class="control-group">		
+		<label class="control-label">{{ _('Light Pin:') }}</label>
+        <div class="controls" data-toggle="tooltip" title="{{ _('Which GPIO pin your light is attached to.') }}">
+			<input type="number" step="any" min="-1" class="input-mini text-right" data-bind="value: settings.plugins.mylight.light_pin">
 		</div>
 		
 		<div class="controls">

@@ -15,6 +15,8 @@ $(function() {
         self.testSuccessful = ko.observable(false);
         self.testMessage = ko.observable();
 		
+		self.PinTest = ko.observable(-1);
+		
 		//Get and set the current Gradient / Backgroundcolor according to the current theme / color (more or less)
 		self.CurrentGradient = function() {
 			currentOctoprintTheme=self.settings.appearance.color();
@@ -78,11 +80,11 @@ $(function() {
             self.testSuccessful(false);
             self.testMessage("");
 			
-			test_pin=self.settings.plugins.mylight.light_pin();
+			var test_pin = self.PinTest();
 			
 			var payload = {
 			    command: "pin_test",
-                pin: self.settings.plugins.mylight.light_pin()
+				pin: test_pin
 			};
 			
             $.ajax({
