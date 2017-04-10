@@ -67,15 +67,24 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		self.defined_pins={}
 		
 		self.startI2CTimer(1)
+		self.i2c_status=-1
 	
 	def checkI2C(self):
 		try:
-			number = self.i2c_bus.read_byte(self.i2c_slave_address)
+			self.i2c_status = self.i2c_bus.read_byte(self.i2c_slave_address)
 		except IOError, (errno, strerror):
 			print "i2c checkI2C - I/O error(%s): %s" % (errno, strerror)
 			return -1
-		self._logger.info("MyLight ("+self.get_version()+") - i2c returns '{0}'...".format(number))
-		return number
+		#self._logger.info("MyLight ("+self.get_version()+") - i2c returns '{0}'...".format(number))
+		return self.i2c_status
+	
+	def writeI2C(self, value):
+		try:
+			self.i2c_bus.write_byte(self.i2c_slave_address, value) # 5 = I/O error
+		except IOError, (errno, strerror):
+			print "i2c writeI2C - I/O error(%s): %s" % (errno, strerror)
+			return -1
+		return 0
 	
 	def stopI2CTimer(self):
 		if self._checkI2CTimer is not None:
@@ -94,12 +103,14 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 	def set_light_on(self, to):
 		
 		if to == True:
+			self.writeI2C(2);
 			if self._settings.get(['light_use_pwm']) == True:
 				self.pwm.start(int(self._settings.get(['light_dc']))) # Set the duty cycle
 			else:
 				GPIO.output(int(self._settings.get(['light_pin'])), 1)
 			self.light_on = True
 		else:
+			self.writeI2C(1);
 			if self._settings.get(['light_use_pwm']) == True:
 				self.pwm.stop()
 			else:
