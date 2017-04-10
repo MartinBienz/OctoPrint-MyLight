@@ -75,9 +75,9 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			self.i2c_status = self.i2c_bus.read_byte(self.i2c_slave_address)
 		except IOError, (errno, strerror):
 			print "i2c checkI2C - I/O error(%s): %s" % (errno, strerror)
-			return -1
+			#return -1
 		
-		if self.i2c_status <> self.i2c_last_status:
+		if self.i2c_status != self.i2c_last_status:
 			
 			self._logger.info("MyLight ("+self.get_version()+") - i2c status changed '{0}'...".format(self.i2c_status))
 			if self.i2c_status == 1:
