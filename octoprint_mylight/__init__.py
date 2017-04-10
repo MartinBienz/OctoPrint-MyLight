@@ -66,7 +66,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 		self.defined_pins={}
 		
-		self.startI2CTimer(10)
+		self.startI2CTimer(1)
 	
 	def checkI2C(self):
 		try:
