@@ -2,11 +2,18 @@
 from __future__ import absolute_import
 
 import octoprint.plugin
+from octoprint.util import RepeatedTimer
 
-import RPi.GPIO as GPIO
+#import smbus
+#import RPi.GPIO as GPIO
 import math
 import time
 import flask
+
+try:
+	import smbus
+except ImportError:
+	raise Exception("smbus import Error, needed for i2c communication.")
 
 try:
 	import RPi.GPIO as GPIO
@@ -37,6 +44,12 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 		GPIO.setwarnings(True)
 		
+		#init timer for i2c communication
+		self._checkI2CTimer = None
+		
+		self.i2c_bus = smbus.SMBus(1)
+		self.i2c_slave_address = 0x04
+		
 		# Using a dictionary as a lookup table to give a name to gpio_function() return code  
 		self.gpio_port_use = {0:"GPIO.OUT", 1:"GPIO.IN",40:"GPIO.SERIAL",41:"GPIO.SPI",42:"GPIO.I2C",  43:"GPIO.HARD_PWM", -1:"GPIO.UNKNOWN"}  
 		
@@ -47,11 +60,33 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 		self.end_press=0
 		self.start_press=0
+		self.switch_laststate=-1
 				
 		self.pwm_dc=self._settings.get_int(['light_dc'])
 		
 		self.defined_pins={}
-
+		
+		self.startI2CTimer(5)
+	
+	def checkI2C(self):
+		try:
+			number = self.i2c_bus.read_byte(self.i2c_slave_address)
+		except IOError, (errno, strerror):
+			print "i2c checkI2C - I/O error(%s): %s" % (errno, strerror)
+			return -1
+		return number
+	
+	def stopI2CTimer(self):
+		if self._checkI2CTimer is not None:
+			try:
+				self._checkI2CTimer.cancel()
+			except:
+				pass
+	
+	def startI2CTimer(self, interval):
+		self._checkI2CTimer = RepeatedTimer(interval, self.checkI2C, None, None, True)
+		self._checkI2CTimer.start()
+		
 	def get_light_status(self):
 		return self.light_on
 	
@@ -147,7 +182,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		#Rotary Encoder - Switch
 		if self._settings.get_int(['re_switch_pin']) != -1:   # If a pin is defined, else just ignore it
 			GPIO.setup(int(self._settings.get(['re_switch_pin'])), GPIO.IN, pull_up_down = GPIO.PUD_UP)
-			GPIO.add_event_detect(int(self._settings.get(['re_switch_pin'])), GPIO.BOTH, callback=self.check_re_switch, bouncetime=10)
+			GPIO.add_event_detect(int(self._settings.get(['re_switch_pin'])), GPIO.BOTH, callback=self.check_re_switch, bouncetime=100)
 			
 		#ROTARY ENCODER - INPUT switches / grey code gen
 		if self._settings.get_int(['re_a_pin']) != -1:   # If a pin is defined, else just ignore it
@@ -163,10 +198,16 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 	
 	def check_re_switch(self, channel):
 		#function called by the event attached to the switch, called every time the switch is touched
-		#Problem with this is, that if one statechange is missed, longpress missbehavious
-		
-		#state = GPIO.input(int(self._settings.get(['re_switch_pin'])))
+				
 		state = GPIO.input(channel)
+		#print "State :"+str(state)+ " Last :"+str(self.switch_laststate)
+		
+		if state==self.switch_laststate:
+			#print "bounce, same state 2" #bounce, same state twice!
+			if state == 0: self.switch_laststate == 1
+			if state == 1: self.switch_laststate == 0
+			return
+	
 				
 		if state == 0:
 			#Register the time for longpressing
@@ -188,11 +229,15 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			if elapsed<=self._settings.get_int(['shutdown_longpress_s']) :
 				self.set_light_on(not self.get_light_status())
 			else:
+				#blink, to let them know, we recognised it!
+				self.blink_switch_led(5)
+				
 				#Shutdown, if this is what you want
 				if self._settings.get(['shutdown_longpress']) == True: 
-					self.blink_switch_led(5)
 					self.gpio_cleanup()
 					self.shutdown_system()
+			
+		self.switch_laststate=state
 	
 	def check_re_encoder(self, channel):
 		#function called by the event attached to the 2 rotary encoder switches, called every time the encoder moves
@@ -432,7 +477,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 	)
 
 __plugin_name__ = "MyLight"
-__plugin_version__= "0.0.1"
+__plugin_version__= "0.0.2"
 
 
 def __plugin_load__():
