@@ -66,9 +66,11 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 		self.defined_pins={}
 		
-		self.startI2CTimer(1)
 		self.i2c_status=-1
 		self.i2c_last_status=-1
+		
+		self.startI2CTimer(1)
+
 	
 	def checkI2C(self):
 		try:
@@ -85,6 +87,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 			if self.i2c_status == 2:
 				self.light_on = True
 			if  5 <= self.i2c_status <= 255:
+				self.light_on = True
 				self.pwm_dc = self.i2c_status
 						
 			self.i2c_last_status = self.i2c_status
