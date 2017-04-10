@@ -86,6 +86,10 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 				self.light_on = False
 			if self.i2c_status == 2:
 				self.light_on = True
+			if self.i2c_status == 4:
+				if self._settings.get(['shutdown_longpress']) == True: 
+					self.gpio_cleanup()
+					self.shutdown_system()
 			if  5 <= self.i2c_status <= 255:
 				self.light_on = True
 				self.pwm_dc = self.i2c_status
