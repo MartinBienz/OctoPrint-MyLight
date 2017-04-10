@@ -68,6 +68,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 		self.startI2CTimer(1)
 		self.i2c_status=-1
+		self.i2c_last_status=-1
 	
 	def checkI2C(self):
 		try:
@@ -75,7 +76,20 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		except IOError, (errno, strerror):
 			print "i2c checkI2C - I/O error(%s): %s" % (errno, strerror)
 			return -1
-		#self._logger.info("MyLight ("+self.get_version()+") - i2c returns '{0}'...".format(number))
+		
+		if self.i2c_status <> self.i2c_last_status:
+			
+			self._logger.info("MyLight ("+self.get_version()+") - i2c status changed '{0}'...".format(self.i2c_status))
+			if self.i2c_status == 1:
+				self.light_on = False
+			if self.i2c_status == 2:
+				self.light_on = True
+			if  5 <= self.i2c_status <= 255:
+				self.pwm_dc = self.i2c_status
+						
+			self.i2c_last_status = self.i2c_status
+			self._plugin_manager.send_plugin_message(self._identifier, dict(light_status=self.get_light_status(), light_dc=self.pwm_dc))
+		
 		return self.i2c_status
 	
 	def writeI2C(self, value):
