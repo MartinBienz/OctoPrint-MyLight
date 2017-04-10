@@ -66,7 +66,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		
 		self.defined_pins={}
 		
-		self.startI2CTimer(5)
+		self.startI2CTimer(10)
 	
 	def checkI2C(self):
 		try:
@@ -74,6 +74,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 		except IOError, (errno, strerror):
 			print "i2c checkI2C - I/O error(%s): %s" % (errno, strerror)
 			return -1
+		self._logger.info("MyLight ("+self.get_version()+") - i2c returns '{0}'...".format(number))
 		return number
 	
 	def stopI2CTimer(self):
@@ -477,7 +478,7 @@ class MyLightPlugin(octoprint.plugin.StartupPlugin,
 	)
 
 __plugin_name__ = "MyLight"
-__plugin_version__= "0.0.2"
+__plugin_version__= "0.0.4"
 
 
 def __plugin_load__():
